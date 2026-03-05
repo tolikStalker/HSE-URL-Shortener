@@ -23,9 +23,7 @@ async def periodic_cleanup(interval_seconds: int = 600) -> None:
                     expired = await cleanup_expired_links(db, cache)
                     unused = await cleanup_unused_links(db, cache)
                     if expired or unused:
-                        logger.info(
-                            "Cleanup: %d expired, %d unused links removed", expired, unused
-                        )
+                        logger.info("Cleanup: %d expired, %d unused links removed", expired, unused)
         except Exception:
             logger.exception("Error during periodic cleanup")
 
@@ -52,9 +50,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.include_router(api_router)
-
 
 @app.get("/health", tags=["Health"])
 async def health_check():
     return {"status": "ok"}
+
+
+app.include_router(api_router)
