@@ -22,9 +22,6 @@ class CacheService:
     async def set_url(self, short_code: str, original_url: str) -> None:
         await self.redis.set(self._key(short_code), original_url, ex=self.ttl)
 
-    async def delete_url(self, short_code: str) -> None:
-        await self.redis.delete(self._key(short_code))
-
     async def get_stats(self, short_code: str) -> dict | None:
         data = await self.redis.get(self._stats_key(short_code))
         if data:

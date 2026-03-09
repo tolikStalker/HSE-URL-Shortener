@@ -1,5 +1,6 @@
 from fastapi import HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.security import create_access_token, hash_password, verify_password
@@ -12,22 +13,20 @@ class UserService:
         self.db = db
 
     async def register(self, data: UserCreate) -> User:
-        result = await self.db.execute(
-            select(User).where((User.username == data.username) | (User.email == data.email))
-        )
-        if result.scalar_one_or_none():
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Username or email already registered",
-            )
-
         user = User(
             username=data.username,
             email=data.email,
             hashed_password=hash_password(data.password),
         )
         self.db.add(user)
-        await self.db.flush()
+        try:
+            await self.db.flush()
+        except IntegrityError:
+            await self.db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Username or email already registered",
+            )
         return user
 
     async def authenticate(self, username: str, password: str) -> str:

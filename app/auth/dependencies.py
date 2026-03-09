@@ -7,20 +7,19 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.security import decode_access_token
-from app.database import get_db
+from app.dependencies import DbSession
 from app.models.user import User
 
 security_scheme = HTTPBearer(auto_error=True)
 optional_security_scheme = HTTPBearer(auto_error=False)
 
-DbSession = Annotated[AsyncSession, Depends(get_db)]
 AuthCredentials = Annotated[HTTPAuthorizationCredentials, Depends(security_scheme)]
 OptionalAuthCredentials = Annotated[
     HTTPAuthorizationCredentials | None, Depends(optional_security_scheme)
 ]
 
 
-async def _resolve_user(token: str, db: DbSession) -> User | None:
+async def _resolve_user(token: str, db: AsyncSession) -> User | None:
     payload = decode_access_token(token)
     if payload is None:
         return None
@@ -40,7 +39,7 @@ async def _resolve_user(token: str, db: DbSession) -> User | None:
 
 async def get_current_user(
     credentials: AuthCredentials,
-    db: DbSession = DbSession,
+    db: DbSession,
 ) -> User:
     user = await _resolve_user(credentials.credentials, db)
     if user is None:
@@ -53,7 +52,7 @@ async def get_current_user(
 
 async def get_optional_user(
     credentials: OptionalAuthCredentials,
-    db: DbSession = DbSession,
+    db: DbSession,
 ) -> User | None:
     if credentials is None:
         return None

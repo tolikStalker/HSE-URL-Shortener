@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.link import Link
@@ -41,12 +41,17 @@ class LinkService:
         return link
 
     async def resolve_redirect(self, short_code: str) -> str:
+        cached_url = await self.cache.get_url(short_code)
+        if cached_url is not None:
+            await self._increment_clicks_raw(short_code)
+            await self.cache.delete_stats(short_code)
+            return cached_url
+
         link = await self._get_active_link(short_code)
         self._record_click(link)
         await self.db.flush()
         await self.cache.set_url(short_code, link.original_url)
         await self.cache.delete_stats(short_code)
-
         return link.original_url
 
     async def get_stats(self, short_code: str) -> dict:
@@ -82,6 +87,16 @@ class LinkService:
         return list(result.scalars().all())
 
     # --- Private methods ---
+
+    async def _increment_clicks_raw(self, short_code: str) -> None:
+        await self.db.execute(
+            update(Link)
+            .where(Link.short_code == short_code)
+            .values(
+                click_count=Link.click_count + 1,
+                last_used_at=datetime.now(UTC),
+            )
+        )
 
     async def _get_active_link(self, short_code: str) -> Link:
         link = await self._get_link_or_404(short_code)
@@ -143,9 +158,9 @@ class LinkService:
         return {
             "short_code": link.short_code,
             "original_url": link.original_url,
-            "created_at": link.created_at.isoformat(),
-            "last_used_at": link.last_used_at.isoformat() if link.last_used_at else None,
+            "created_at": link.created_at,
+            "last_used_at": link.last_used_at,
             "click_count": link.click_count,
-            "expires_at": link.expires_at.isoformat() if link.expires_at else None,
-            "owner_id": str(link.owner_id) if link.owner_id else None,
+            "expires_at": link.expires_at,
+            "owner_id": link.owner_id,
         }
