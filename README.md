@@ -367,7 +367,8 @@ curl http://localhost:8000/health
 │   ├── main.py          # Точка входа FastAPI
 │   ├── config.py        # Настройки (pydantic-settings)
 │   ├── database.py      # Подключение к PostgreSQL
-│   └── redis.py         # Подключение к Redis
+│   ├── redis.py         # Подключение к Redis
+│   └── dependencies.py  # Зависимости
 ├── alembic/             # Миграции БД
 ├── alembic.ini
 ├── Dockerfile

@@ -5,7 +5,6 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user, get_optional_user
-from app.config import settings
 from app.dependencies import DbSession, RedisClient
 from app.models.link import Link
 from app.models.user import User
