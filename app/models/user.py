@@ -22,5 +22,5 @@ class User(Base):
     )
 
     links: Mapped[list["Link"]] = relationship(  # noqa: F821
-        "Link", back_populates="owner", lazy="selectin"
+        "Link", back_populates="owner", lazy="noload"
     )

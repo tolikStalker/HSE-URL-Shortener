@@ -6,8 +6,6 @@ from app.config import settings
 
 
 class CacheService:
-    """Redis caching layer for link lookups."""
-
     def __init__(self, redis: Redis):
         self.redis = redis
         self.ttl = settings.cache_ttl

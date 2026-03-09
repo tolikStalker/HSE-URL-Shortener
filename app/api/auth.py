@@ -1,18 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.security import create_access_token, hash_password, verify_password
 from app.database import get_db
 from app.models.user import User
-from app.schemas.user import Token, UserCreate, UserLogin, UserResponse
+from app.schemas.user import Token, UserCreate, UserResponse
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(data: UserCreate, db: AsyncSession = Depends(get_db)):  # noqa: B008
-    # Check uniqueness
     result = await db.execute(
         select(User).where((User.username == data.username) | (User.email == data.email))
     )
@@ -33,11 +33,14 @@ async def register(data: UserCreate, db: AsyncSession = Depends(get_db)):  # noq
 
 
 @router.post("/login", response_model=Token)
-async def login(data: UserLogin, db: AsyncSession = Depends(get_db)):  # noqa: B008
-    result = await db.execute(select(User).where(User.username == data.username))
+async def login(
+    form_data: OAuth2PasswordRequestForm = Depends(),  # noqa: B008
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+):
+    result = await db.execute(select(User).where(User.username == form_data.username))
     user = result.scalar_one_or_none()
 
-    if not user or not verify_password(data.password, user.hashed_password):
+    if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
