@@ -22,14 +22,7 @@ class LinkService:
         original_url = str(data.original_url)
 
         if data.custom_alias:
-            existing = await self.db.execute(
-                select(Link).where(Link.short_code == data.custom_alias)
-            )
-            if existing.scalar_one_or_none():
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail=f"Alias '{data.custom_alias}' is already taken",
-                )
+            await self._ensure_code_available(data.custom_alias)
             short_code = data.custom_alias
         else:
             short_code = await self._generate_unique_code()
@@ -48,23 +41,9 @@ class LinkService:
         return link
 
     async def resolve_redirect(self, short_code: str) -> str:
-        cached = await self.cache.get_url(short_code)
-        if cached:
-            link = await self._get_link_or_404(short_code)
-            self._check_expired(link)
-            link.click_count += 1
-            link.last_used_at = datetime.now(UTC)
-            await self.db.flush()
-            await self.cache.delete_stats(short_code)
-            return cached
-
-        link = await self._get_link_or_404(short_code)
-        self._check_expired(link)
-
-        link.click_count += 1
-        link.last_used_at = datetime.now(UTC)
+        link = await self._get_active_link(short_code)
+        self._record_click(link)
         await self.db.flush()
-
         await self.cache.set_url(short_code, link.original_url)
         await self.cache.delete_stats(short_code)
 
@@ -76,17 +55,7 @@ class LinkService:
             return cached
 
         link = await self._get_link_or_404(short_code)
-
-        stats = {
-            "short_code": link.short_code,
-            "original_url": link.original_url,
-            "created_at": link.created_at.isoformat(),
-            "last_used_at": link.last_used_at.isoformat() if link.last_used_at else None,
-            "click_count": link.click_count,
-            "expires_at": link.expires_at.isoformat() if link.expires_at else None,
-            "owner_id": str(link.owner_id) if link.owner_id else None,
-        }
-
+        stats = self._build_stats_dict(link)
         await self.cache.set_stats(short_code, stats)
         return stats
 
@@ -106,11 +75,26 @@ class LinkService:
         await self.db.flush()
         await self.cache.invalidate(short_code)
 
-    async def search_by_url(self, original_url: str) -> list[Link]:
-        result = await self.db.execute(select(Link).where(Link.original_url == original_url))
+    async def search_by_url(self, original_url: str, limit: int = 100) -> list[Link]:
+        result = await self.db.execute(
+            select(Link).where(Link.original_url == original_url).limit(limit)
+        )
         return list(result.scalars().all())
 
     # --- Private methods ---
+
+    async def _get_active_link(self, short_code: str) -> Link:
+        link = await self._get_link_or_404(short_code)
+        self._check_expired(link)
+        return link
+
+    async def _ensure_code_available(self, code: str) -> None:
+        existing = await self.db.execute(select(Link.id).where(Link.short_code == code))
+        if existing.scalar_one_or_none() is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Alias '{code}' is already taken",
+            )
 
     async def _generate_unique_code(self) -> str:
         for _ in range(_MAX_CODE_ATTEMPTS):
@@ -131,11 +115,13 @@ class LinkService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Link not found")
         return link
 
-    def _check_expired(self, link: Link) -> None:
+    @staticmethod
+    def _check_expired(link: Link) -> None:
         if link.expires_at and link.expires_at < datetime.now(UTC):
             raise HTTPException(status_code=status.HTTP_410_GONE, detail="Link has expired")
 
-    def _check_ownership(self, link: Link, user: User) -> None:
+    @staticmethod
+    def _check_ownership(link: Link, user: User) -> None:
         if link.owner_id is None:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -146,3 +132,20 @@ class LinkService:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not own this link",
             )
+
+    @staticmethod
+    def _record_click(link: Link) -> None:
+        link.click_count += 1
+        link.last_used_at = datetime.now(UTC)
+
+    @staticmethod
+    def _build_stats_dict(link: Link) -> dict:
+        return {
+            "short_code": link.short_code,
+            "original_url": link.original_url,
+            "created_at": link.created_at.isoformat(),
+            "last_used_at": link.last_used_at.isoformat() if link.last_used_at else None,
+            "click_count": link.click_count,
+            "expires_at": link.expires_at.isoformat() if link.expires_at else None,
+            "owner_id": str(link.owner_id) if link.owner_id else None,
+        }

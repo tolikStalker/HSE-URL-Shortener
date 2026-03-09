@@ -21,6 +21,6 @@ class User(Base):
         DateTime(timezone=True), server_default=func.now()
     )
 
-    links: Mapped[list["Link"]] = relationship(  # noqa: F821
+    links: Mapped[list["Link"]] = relationship(  # noqa: F821, UP037
         "Link", back_populates="owner", lazy="noload"
     )

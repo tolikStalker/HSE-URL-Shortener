@@ -6,7 +6,7 @@ from fastapi import FastAPI
 
 from app.api.router import api_router
 from app.database import async_session_factory, engine
-from app.redis import close_redis, get_redis, init_redis
+from app.redis import close_redis, init_redis, redis_manager
 from app.services.cache_service import CacheService
 from app.services.cleanup_service import cleanup_expired_links, cleanup_unused_links
 
@@ -18,12 +18,16 @@ async def periodic_cleanup(interval_seconds: int = 600) -> None:
         await asyncio.sleep(interval_seconds)
         try:
             async with async_session_factory() as db:
-                async for redis in get_redis():
-                    cache = CacheService(redis)
-                    expired = await cleanup_expired_links(db, cache)
-                    unused = await cleanup_unused_links(db, cache)
-                    if expired or unused:
-                        logger.info("Cleanup: %d expired, %d unused links removed", expired, unused)
+                cache = CacheService(redis_manager.client)
+                expired = await cleanup_expired_links(db, cache)
+                unused = await cleanup_unused_links(db, cache)
+                await db.commit()
+                if expired or unused:
+                    logger.info(
+                        "Cleanup: %d expired, %d unused links removed",
+                        expired,
+                        unused,
+                    )
         except Exception:
             logger.exception("Error during periodic cleanup")
 
@@ -31,7 +35,6 @@ async def periodic_cleanup(interval_seconds: int = 600) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_redis()
-
     cleanup_task = asyncio.create_task(periodic_cleanup())
 
     yield

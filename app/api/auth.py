@@ -1,50 +1,30 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.security import create_access_token, hash_password, verify_password
 from app.database import get_db
-from app.models.user import User
 from app.schemas.user import Token, UserCreate, UserResponse
+from app.services.user_service import UserService
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
+DbSession = Annotated[AsyncSession, Depends(get_db)]
+RequestForm = Annotated[OAuth2PasswordRequestForm, Depends()]
+
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def register(data: UserCreate, db: AsyncSession = Depends(get_db)):  # noqa: B008
-    result = await db.execute(
-        select(User).where((User.username == data.username) | (User.email == data.email))
-    )
-    if result.scalar_one_or_none():
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Username or email already registered",
-        )
-
-    user = User(
-        username=data.username,
-        email=data.email,
-        hashed_password=hash_password(data.password),
-    )
-    db.add(user)
-    await db.flush()
-    return user
+async def register(data: UserCreate, db: DbSession):
+    service = UserService(db)
+    return await service.register(data)
 
 
 @router.post("/login", response_model=Token)
 async def login(
-    form_data: OAuth2PasswordRequestForm = Depends(),  # noqa: B008
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    form_data: RequestForm,
+    db: DbSession,
 ):
-    result = await db.execute(select(User).where(User.username == form_data.username))
-    user = result.scalar_one_or_none()
-
-    if not user or not verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-        )
-
-    token = create_access_token(data={"sub": str(user.id)})
+    service = UserService(db)
+    token = await service.authenticate(form_data.username, form_data.password)
     return Token(access_token=token)

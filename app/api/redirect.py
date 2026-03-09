@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, Path
 from fastapi.responses import RedirectResponse
 from redis.asyncio import Redis
@@ -10,12 +12,16 @@ from app.services.link_service import LinkService
 
 router = APIRouter(tags=["Redirect"])
 
+ShortCode = Annotated[str, Path(pattern=r"^[a-zA-Z0-9_-]{3,20}$")]
+DbSession = Annotated[AsyncSession, Depends(get_db)]
+RedisClient = Annotated[Redis, Depends(get_redis)]
+
 
 @router.get("/{short_code}")
 async def redirect_to_original(
-    short_code: str = Path(..., pattern=r"^[a-zA-Z0-9_-]{3,20}$"),
-    db: AsyncSession = Depends(get_db),
-    redis: Redis = Depends(get_redis),  # noqa: B008
+    short_code: ShortCode,
+    db: DbSession,
+    redis: RedisClient,
 ):
     service = LinkService(db, CacheService(redis))
     original_url = await service.resolve_redirect(short_code)

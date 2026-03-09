@@ -1,13 +1,21 @@
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl, field_validator
 
 
 class LinkCreate(BaseModel):
     original_url: HttpUrl
     custom_alias: str | None = Field(None, min_length=3, max_length=20, pattern=r"^[a-zA-Z0-9_-]+$")
     expires_at: datetime | None = None
+
+    @field_validator("expires_at")
+    @classmethod
+    def expires_must_be_in_future(cls, v: datetime | None) -> datetime | None:
+        if v is not None and v < datetime.now(UTC):
+            msg = "expires_at must be in the future"
+            raise ValueError(msg)
+        return v
 
 
 class LinkUpdate(BaseModel):
