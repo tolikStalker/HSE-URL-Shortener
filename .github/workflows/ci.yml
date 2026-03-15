@@ -1,0 +1,85 @@
+name: CI
+
+on:
+    push:
+        branches: ['main', 'master', 'dev']
+    pull_request:
+        branches: ['main', 'master']
+
+jobs:
+    lint:
+        name: Lint (Ruff)
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Set up Python
+              uses: actions/setup-python@v5
+              with:
+                  python-version: '3.12'
+
+            - name: Install uv
+              uses: astral-sh/setup-uv@v4
+
+            - name: Install dependencies
+              run: uv sync --frozen
+
+            - name: Run Ruff
+              run: uv run ruff check .
+
+    test:
+        name: Tests & Coverage
+        runs-on: ubuntu-latest
+
+        env:
+            DATABASE_URL: sqlite+aiosqlite:///./test.db
+            REDIS_URL: redis://localhost:6379/0
+            SECRET_KEY: ci-secret-key-at-least-32-bytes-long
+            ACCESS_TOKEN_EXPIRE_MINUTES: 60
+            CLEANUP_UNUSED_DAYS: 30
+            CACHE_TTL: 300
+            BASE_URL: http://localhost:8000
+
+        services:
+            redis:
+                image: redis:7-alpine
+                ports:
+                    - 6379:6379
+                options: >-
+                    --health-cmd "redis-cli ping"
+                    --health-interval 5s
+                    --health-timeout 5s
+                    --health-retries 5
+
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Set up Python
+              uses: actions/setup-python@v5
+              with:
+                  python-version: '3.12'
+
+            - name: Install uv
+              uses: astral-sh/setup-uv@v4
+
+            - name: Install dependencies (including dev)
+              run: uv sync --frozen --extra dev
+
+            - name: Run unit tests
+              run: uv run pytest tests/unit -v --tb=short -m unit
+
+            - name: Run integration tests
+              run: uv run pytest tests/integration -v --tb=short -m integration
+
+            - name: Run all tests with coverage
+              run: |
+                  uv run coverage run -m pytest tests/unit tests/integration
+                  uv run coverage report -m --fail-under=90
+                  uv run coverage xml -o coverage.xml
+
+            - name: Upload coverage report
+              uses: actions/upload-artifact@v4
+              if: always()
+              with:
+                  name: coverage-report
+                  path: coverage.xml

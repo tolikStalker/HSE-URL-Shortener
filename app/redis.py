@@ -14,7 +14,7 @@ class RedisManager:
 
     async def close(self) -> None:
         if self._client:
-            await self._client.close()
+            await self._client.aclose()
             self._client = None
 
     @property
