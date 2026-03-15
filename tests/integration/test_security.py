@@ -84,6 +84,4 @@ class TestSecurityEndpoints:
         self, client: AsyncClient, payload: str
     ):
         response = await client.get(f"/{payload}", follow_redirects=False)
-        # 422: FastAPI Path regex validation rejected it (e.g. invalid chars).
-        # 404: The payload changed the path structure (e.g. "../" or sub-directories) so no route matched.
         assert response.status_code in [404, 422]

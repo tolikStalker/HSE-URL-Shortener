@@ -21,12 +21,12 @@ class UserService:
         self.db.add(user)
         try:
             await self.db.flush()
-        except IntegrityError:
+        except IntegrityError as e:
             await self.db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Username or email already registered",
-            )
+            ) from e
         return user
 
     async def authenticate(self, username: str, password: str) -> str:
