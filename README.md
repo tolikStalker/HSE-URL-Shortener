@@ -1,7 +1,7 @@
 # Проект № 3 по дисциплине: "Прикладной Python"
 
 [![CI](https://github.com/tolikStalker/HSE-URL-Shortener/actions/workflows/ci.yml/badge.svg)](https://github.com/tolikStalker/HSE-URL-Shortener/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)]()
+[![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)](htmlcov/)
 
 ## Создание веб-сервиса для сокращения ссылок (URL Shortener)
 
@@ -43,7 +43,7 @@ REST API веб-сервис для сокращения ссылок. Позв�
 | ----------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | `DATABASE_URL`                | URL подключения к PostgreSQL (asyncpg)                              | `postgresql+asyncpg://shortener:shortener_secret@postgres:5432/shortener` |
 | `REDIS_URL`                   | URL подключения к Redis                                             | `redis://redis:6379/0`                                                    |
-| `SECRET_KEY`                  | Секретный ключ для подписи JWT токенов (минимум 32 символа).        | `your-super-puper-secret-key-that-min-32-chars`                           |
+| `SECRET_KEY`                  | Секретный ключ для подписи JWT токенов (минимум 32 символа).        | `your-super-puper-secret-key-min-32-chars`                           |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Время жизни JWT токена (в минутах)                                  | `60`                                                                      |
 | `CLEANUP_UNUSED_DAYS`         | Через сколько дней неиспользования ссылка автоматически удаляется   | `30`                                                                      |
 | `CACHE_TTL`                   | Время жизни кэша Redis (в секундах)                                 | `300`                                                                     |

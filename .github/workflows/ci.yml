@@ -1,8 +1,5 @@
 name: CI
 
-env:
-    FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
-
 on:
     push:
         branches: ['main', 'master', 'dev']
@@ -13,6 +10,8 @@ jobs:
     lint:
         name: Lint (Ruff)
         runs-on: ubuntu-latest
+        env:
+            FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         steps:
             - uses: actions/checkout@v4
 
@@ -35,6 +34,7 @@ jobs:
         runs-on: ubuntu-latest
 
         env:
+            FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
             DATABASE_URL: sqlite+aiosqlite:///./test.db
             REDIS_URL: redis://localhost:6379/0
             SECRET_KEY: ci-secret-key-at-least-32-bytes-long
