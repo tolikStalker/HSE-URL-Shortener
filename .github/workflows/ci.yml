@@ -1,5 +1,8 @@
 name: CI
 
+env:
+    FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 on:
     push:
         branches: ['main', 'master', 'dev']
@@ -22,7 +25,7 @@ jobs:
               uses: astral-sh/setup-uv@v4
 
             - name: Install dependencies
-              run: uv sync --frozen
+              run: uv sync --frozen --extra dev
 
             - name: Run Ruff
               run: uv run ruff check .
